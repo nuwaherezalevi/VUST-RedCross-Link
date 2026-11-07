@@ -88,7 +88,7 @@ main{max-width:1000px;margin:28px auto;padding:0 16px 50px}.hero{background:line
 <section id="contact" class="panel"><div class="card">
  <h2>Contact VUST Red Cross Link</h2><p class="intro">For questions about volunteering, membership or our humanitarian activities, reach out using the details below.</p>
  <div class="contact-grid"><div class="contact-item"><b>Email</b><br><a href="mailto:vust2026urcs@gmail.com">vust2026urcs@gmail.com</a></div><div class="contact-item"><b>Phone</b><br><a href="tel:+256768249632">+256768249632</a></div></div>
- <h3 style="margin-top:22px">Send an inquiry</h3><p class="hint">This standalone demo opens your email application with a prepared message; it does not send in the background.</p>
+ <h3 style="margin-top:22px">Send an inquiry</h3><p class="hint">This standalone demo opens your email application with a prepared inquiry; you must press Send. Volunteer and membership submissions also open a prefilled email to the official inbox.</p>
  <form id="contactForm"><div class="grid"><div class="field"><label for="cname">Name *</label><input id="cname" required></div><div class="field"><label for="cemail">Email *</label><input id="cemail" type="email" required></div><div class="field full"><label for="csubject">Subject *</label><input id="csubject" required></div><div class="field full"><label for="cmessage">Message *</label><textarea id="cmessage" required></textarea></div></div><div class="actions"><button class="btn">Prepare inquiry email</button></div></form><div id="contactConfirm" class="notice success hidden">We'll respond as soon as possible. Your email application should open with the inquiry ready to send.</div>
 </div></section>
 <section id="admin" class="panel"><div class="card">
@@ -125,7 +125,29 @@ function nextId(type){const prefix=type==='Volunteer'?'VUST-V-':'VUST-M-';const 
 function duplicate(type,studentId){return applications.some(a=>a.type===type&&a.studentId.toLowerCase()===studentId.toLowerCase())}
 function submitApplication(form,type){const email=val(form,'email'),phone=val(form,'phone'),studentId=val(form,'studentId');if(!form.reportValidity())return;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){alert('Please enter a valid email address.');return}if(!validPhone(phone)){alert('Please enter a valid phone number.');return}if(duplicate(type,studentId)){alert('An application of this type already exists for this student ID in this browser demo. Contact the Link if you need help.');return}
  const data=Object.fromEntries(new FormData(form).entries());data.name=val(form,'name');data.studentId=studentId;data.email=email;data.phone=phone;data.type=type;data.id=nextId(type);data.status='Submitted';data.created=today();data.history=[{status:'Submitted',date:today(),note:'Your application has been received.'}];if(type==='Volunteer')data.areas=[...document.querySelectorAll('#volAreas input:checked')].map(x=>x.value);
- applications.push(data);saveApps();const target=document.getElementById(type==='Volunteer'?'vconfirmation':'mconfirmation');target.innerHTML=`<b>Application received successfully.</b><br>Your Application ID is <strong>${data.id}</strong>. Save this ID and use it with <strong>${email}</strong> on the Track Application page. <button class="btn secondary" type="button" onclick="navigator.clipboard?.writeText('${data.id}')">Copy ID</button>`;target.classList.remove('hidden');form.reset();target.scrollIntoView({behavior:'smooth',block:'center'});renderAdmin();}
+ applications.push(data);saveApps();
+ // Prepare a complete application email for the applicant to send to the official inbox.
+ // The email app opens with the application details; the applicant must press Send.
+ const emailLines = [
+   `Application ID: ${data.id}`,
+   `Application type: ${data.type}`,
+   `Submitted: ${data.created}`,
+   '',
+   ...Object.entries(data)
+     .filter(([key]) => !['history','created','type','id','status'].includes(key))
+     .map(([key,value]) => `${key.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase())}: ${Array.isArray(value)?value.join(', '):value}`),
+   '',
+   'Please acknowledge receipt of this application.',
+   'VUST Red Cross Link'
+ ];
+ const mailSubject = `${type} application - ${data.id} - ${data.name}`;
+ const mailBody = emailLines.join('\\n');
+ const mailto = `mailto:vust2026urcs@gmail.com?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
+ const target=document.getElementById(type==='Volunteer'?'vconfirmation':'mconfirmation');
+ target.innerHTML=`<b>Application saved in this browser.</b><br>Your Application ID is <strong>${data.id}</strong>. Save this ID and use it with <strong>${email}</strong> on the Track Application page.<br><br>Your email application is being opened with the full application addressed to <strong>vust2026urcs@gmail.com</strong>. Please press <strong>Send</strong> in your email app to deliver it. <button class="btn secondary" type="button" onclick="navigator.clipboard?.writeText('${data.id}')">Copy ID</button>`;
+ target.classList.remove('hidden');form.reset();target.scrollIntoView({behavior:'smooth',block:'center'});renderAdmin();
+ window.location.href=mailto;
+}
 document.getElementById('volForm').addEventListener('submit',e=>{e.preventDefault();if(!document.querySelector('#volAreas input:checked')){alert('Please select at least one area of interest.');return}submitApplication(e.target,'Volunteer')});
 document.getElementById('memForm').addEventListener('submit',e=>{e.preventDefault();submitApplication(e.target,'Membership')});
 document.getElementById('trackForm').addEventListener('submit',e=>{e.preventDefault();const id=document.getElementById('trackId').value.trim().toUpperCase(),email=document.getElementById('trackEmail').value.trim().toLowerCase();const a=applications.find(x=>x.id.toUpperCase()===id&&x.email.toLowerCase()===email);const out=document.getElementById('trackResult');out.classList.remove('hidden');if(!a){out.textContent='No matching application was found. Check the Application ID and email address and try again.';return}out.innerHTML=`<b>${a.id}</b> · ${a.type}<br><b>Applicant:</b> ${escapeHtml(a.name)}<br><b>Current status:</b> <span class="status">${escapeHtml(a.status)}</span><h3 style="margin-top:15px">Application history</h3>${(a.history||[]).map(h=>`<p><b>${escapeHtml(h.status)}</b> · ${escapeHtml(h.date)}<br>${escapeHtml(h.note||'No additional note.')}</p>`).join('')}`});
